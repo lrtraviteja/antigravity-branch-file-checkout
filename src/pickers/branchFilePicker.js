@@ -9,15 +9,39 @@ const {
 const { log } = require("../logging/output");
 
 async function pickFiles(files, branchRef, repositoryRoot) {
-  const allItems = createFilePickerItems(files, repositoryRoot).map((item) => ({
-    label: item.basename,
-    description: item.displayDirectory,
-    resourceUri: vscode.Uri.file(path.join(repositoryRoot, item.file)),
-    alwaysShow: true,
-    file: item.file,
-    basename: item.basename,
-    displayDirectory: item.displayDirectory
-  }));
+  // Determine extension root depending on whether we are running from src/pickers or dist/
+  const isSrc = __dirname.includes('pickers');
+  const extensionRoot = path.resolve(__dirname, isSrc ? '../../' : '../');
+
+  // Check if VS Code allows us to use the Proposed API for resourceUri
+  let useResourceUri = false;
+  try {
+    const testPicker = vscode.window.createQuickPick();
+    testPicker.items = [{ label: 'test', resourceUri: vscode.Uri.file(__filename) }];
+    useResourceUri = true;
+    testPicker.dispose();
+  } catch (e) {
+    useResourceUri = false;
+  }
+
+  const allItems = createFilePickerItems(files, repositoryRoot).map((item) => {
+    const pickItem = {
+      label: item.basename,
+      description: item.displayDirectory,
+      alwaysShow: true,
+      file: item.file,
+      basename: item.basename,
+      displayDirectory: item.displayDirectory
+    };
+
+    if (useResourceUri) {
+      pickItem.resourceUri = vscode.Uri.file(path.join(repositoryRoot, item.file));
+    } else {
+      pickItem.iconPath = vscode.Uri.file(path.join(extensionRoot, "assets", "theme-symbols", item.assetPath));
+    }
+
+    return pickItem;
+  });
   const selectedFiles = new Set();
   const selectedVisibleFiles = new Set();
   const maxResults = 512;

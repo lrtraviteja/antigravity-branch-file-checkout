@@ -22,7 +22,8 @@ function createFilePickerItems(files, repositoryRoot) {
       displayDirectory,
       searchText: `${basename} ${file}`.toLowerCase(),
       iconLabel: icon.label,
-      iconClass: icon.className
+      iconClass: icon.className,
+      assetPath: icon.assetPath
     };
   });
 }
