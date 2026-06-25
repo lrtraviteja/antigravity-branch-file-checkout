@@ -259,6 +259,50 @@ src/
    - Install into Antigravity.
    - Run test suite before package.
 
+## Implementation Notes
+
+Completed on 2026-06-25:
+
+- Split the large root `extension.js` into GitLens-style modules:
+  - `src/workflow/checkoutFilesFromBranch.js`
+  - `src/pickers/repositoryPicker.js`
+  - `src/pickers/branchPicker.js`
+  - `src/pickers/branchFilePicker.js`
+  - `src/git/api.js`
+  - `src/git/branches.js`
+  - `src/git/tree.js`
+  - `src/git/status.js`
+  - `src/git/checkout.js`
+  - `src/logging/output.js`
+- Kept the tested parser and git process helpers:
+  - `src/parsers.js`
+  - `src/git.js`
+- File picker now prefers `resourceUri` for each branch file so Antigravity can render the active file icon theme like Ctrl+P.
+- The copied Symbol icon theme assets remain packaged as fallback/reference assets, but the picker no longer forces custom `iconPath` over native file-theme rendering.
+- Branch and file search continue to use the shared Ctrl+P-like scorer in `src/filePicker.js`.
+- Multi-select remains implemented with `window.createQuickPick()` and `canSelectMany = true`.
+- Output logging is centralized and logs:
+  - selected repository
+  - selected branch
+  - selected files
+  - git argv
+  - git stdout/stderr
+  - timings
+  - dirty-file warnings
+
+Verification:
+
+- `npm test` passed: 11/11.
+- `npm run build` generated minified `dist/extension.js`.
+- Packaged VSIX: `branch-file-checkout-0.1.6-minified.vsix`.
+- SHA-256: `2C64C0A706A56E34C2DCB40954ACDF74EA3EFC936FE1CBC233A970228F0E2C50`.
+- Installed into Antigravity as `local.branch-file-checkout-0.1.6`.
+
+Install note:
+
+- Antigravity CLI printed `[createInstance] extensionManagementService depends on antigravityAnalytics which is NOT registered.`
+- The same command still completed with `Extension 'branch-file-checkout-0.1.6-minified.vsix' was successfully installed.`
+
 ## Important Constraints
 
 - Do not depend on GitLens runtime APIs.
