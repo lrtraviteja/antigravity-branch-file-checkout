@@ -352,14 +352,19 @@ function filterScoredItems(items, query, getWeightedValues, limit = 250) {
   }
 
   return items
-    .map((item) => ({
-      item,
-      score: scoreItemFuzzy(
+    .map((item) => {
+      const result = scoreItemFuzzy(
         createScoredItem(getWeightedValues(item)),
         preparedQuery,
         true
-      ).score
-    }))
+      );
+      return {
+        item,
+        score: result.score,
+        labelMatch: result.labelMatch,
+        descriptionMatch: result.descriptionMatch
+      };
+    })
     .filter((entry) => entry.score > 0)
     .sort(
       (left, right) =>
@@ -371,7 +376,18 @@ function filterScoredItems(items, query, getWeightedValues, limit = 250) {
         getSortableText(left.item).localeCompare(getSortableText(right.item))
     )
     .slice(0, limit)
-    .map((entry) => entry.item);
+    .map((entry) => {
+      const item = entry.item;
+      if (entry.labelMatch || entry.descriptionMatch) {
+        item.highlights = {
+          label: entry.labelMatch,
+          description: entry.descriptionMatch
+        };
+      } else {
+        item.highlights = undefined;
+      }
+      return item;
+    });
 }
 
 function getSortableText(item) {
@@ -412,6 +428,8 @@ function scoreItemFuzzyMultiple(
   allowNonContiguousMatches
 ) {
   let totalScore = 0;
+  let totalLabelMatch = [];
+  let totalDescriptionMatch = [];
 
   for (let index = 0; index < queryPieces.length; index += 1) {
     const queryPiece = queryPieces[index];
@@ -432,9 +450,19 @@ function scoreItemFuzzyMultiple(
       return { score: 0 };
     }
     totalScore += result.score;
+    if (result.labelMatch) {
+      totalLabelMatch.push(...result.labelMatch);
+    }
+    if (result.descriptionMatch) {
+      totalDescriptionMatch.push(...result.descriptionMatch);
+    }
   }
 
-  return { score: totalScore };
+  return { 
+    score: totalScore, 
+    labelMatch: totalLabelMatch.length ? totalLabelMatch : undefined,
+    descriptionMatch: totalDescriptionMatch.length ? totalDescriptionMatch : undefined 
+  };
 }
 
 function isSoftFilterToken(token) {
@@ -476,7 +504,8 @@ function scoreItemFuzzySingle(
   allowNonContiguousMatches
 ) {
   if (preferLabelMatches || !item.description) {
-    const labelScore = scoreTarget(item.label, query, allowNonContiguousMatches);
+    const labelResult = scoreTarget(item.label, query, allowNonContiguousMatches);
+    const labelScore = labelResult[0];
     if (labelScore > 0) {
       const labelPrefixMatch = matchesPrefix(query.normalized, item.label);
       let baseScore = LABEL_SCORE_THRESHOLD;
@@ -485,24 +514,35 @@ function scoreItemFuzzySingle(
           LABEL_PREFIX_SCORE_THRESHOLD +
           Math.round((query.normalized.length / item.label.length) * 100);
       }
-      return { score: baseScore + labelScore };
+      return { score: baseScore + labelScore, labelMatch: createMatches(labelResult[1]) };
     }
   }
 
   if (item.description) {
     const descriptionAndLabel = `${item.description}/${item.label}`;
-    const descriptionScore = scoreTarget(
+    const descResult = scoreTarget(
       descriptionAndLabel,
       query,
       allowNonContiguousMatches
     );
+    const descriptionScore = descResult[0];
     if (descriptionScore > 0) {
-      return { score: descriptionScore };
+      const positions = descResult[1];
+      const descLength = item.description.length;
+      
+      const descPositions = positions.filter(p => p < descLength);
+      const labelPositions = positions.filter(p => p > descLength).map(p => p - descLength - 1);
+      
+      return { 
+        score: descriptionScore, 
+        labelMatch: createMatches(labelPositions),
+        descriptionMatch: createMatches(descPositions)
+      };
     }
   }
 
   if (item.extra) {
-    const extraScore = scoreTarget(item.extra, query, allowNonContiguousMatches);
+    const extraScore = scoreTarget(item.extra, query, allowNonContiguousMatches)[0];
     if (extraScore > 0) {
       return { score: Math.max(1, Math.floor(extraScore / 2)) };
     }
@@ -517,7 +557,26 @@ function scoreTarget(target, query, allowNonContiguousMatches) {
     query.normalized,
     query.normalizedLowercase,
     allowNonContiguousMatches && !query.expectContiguousMatch
-  )[0];
+  );
+}
+
+function createMatches(positions) {
+  const matches = [];
+  if (!positions || positions.length === 0) {
+    return matches;
+  }
+  let currentMatch = { start: positions[0], end: positions[0] + 1 };
+  for (let i = 1; i < positions.length; i += 1) {
+    const pos = positions[i];
+    if (pos === currentMatch.end) {
+      currentMatch.end += 1;
+    } else {
+      matches.push(currentMatch);
+      currentMatch = { start: pos, end: pos + 1 };
+    }
+  }
+  matches.push(currentMatch);
+  return matches.map(m => [m.start, m.end]);
 }
 
 function compareScoredItems(itemA, itemB, query) {

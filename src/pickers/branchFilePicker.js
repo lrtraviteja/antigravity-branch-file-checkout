@@ -53,7 +53,7 @@ async function pickFiles(files, branchRef, repositoryRoot) {
     picker.canSelectMany = true;
     picker.matchOnDescription = true;
     picker.matchOnDetail = false;
-    picker.ignoreFocusOut = true;
+    picker.ignoreFocusOut = false;
     picker.title = `Select Files from ${branchRef}`;
     picker.placeholder =
       "Search files by name (append : to go to line or @ to go to symbol)";
