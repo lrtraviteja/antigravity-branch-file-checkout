@@ -1,0 +1,7 @@
+.git/**
+.github/**
+src/**
+scripts/**
+test/**
+extension.js
+*.vsix

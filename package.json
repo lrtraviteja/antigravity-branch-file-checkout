@@ -1,0 +1,102 @@
+{
+  "name": "branch-file-checkout",
+  "displayName": "Branch File Checkout",
+  "description": "Checkout selected files from another local or remote Git branch without switching branches.",
+  "version": "0.1.5",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "git",
+    "branch",
+    "checkout",
+    "source control",
+    "files"
+  ],
+  "activationEvents": [
+    "onCommand:branchFileCheckout.checkoutFilesFromBranch",
+    "onCommand:branchFileCheckout.showOutput"
+  ],
+  "main": "./dist/extension.js",
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "branchFileCheckout.checkoutFilesFromBranch",
+        "title": "Checkout Files from Branch",
+        "shortTitle": "Checkout Files",
+        "category": "Git",
+        "icon": "$(file-symlink-file)"
+      },
+      {
+        "command": "branchFileCheckout.showOutput",
+        "title": "Show Branch File Checkout Output",
+        "category": "Git",
+        "icon": "$(output)"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "branchFileCheckout.checkoutFilesFromBranch",
+          "group": "navigation@4.5",
+          "when": "scmProvider == git"
+        }
+      ],
+      "scm/repository": [
+        {
+          "command": "branchFileCheckout.checkoutFilesFromBranch",
+          "group": "1_header@4.5",
+          "when": "scmProvider == git"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "branchFileCheckout.checkoutFilesFromBranch",
+          "when": "config.git.enabled"
+        },
+        {
+          "command": "branchFileCheckout.showOutput"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Branch File Checkout",
+      "properties": {
+        "branchFileCheckout.confirmDirtyFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Confirm before overwriting selected files that currently have local Git changes."
+        },
+        "branchFileCheckout.revealOutput": {
+          "type": "string",
+          "enum": [
+            "onError",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Reveal the Output channel only when an operation fails.",
+            "Reveal the Output channel when each operation starts.",
+            "Never reveal the Output channel automatically."
+          ],
+          "default": "onError",
+          "description": "Controls when the Branch File Checkout Output channel is revealed."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "package": "npm run build && vsce package",
+    "test": "node --test"
+  }
+}
