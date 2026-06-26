@@ -47,6 +47,8 @@ async function pickFiles(files, branchRef, repositoryRoot) {
   const maxResults = 512;
   let accepted = false;
   let visibleItems = [];
+  let debounceTimer = null;
+  const debounceMs = allItems.length > 1000 ? 150 : (allItems.length > 500 ? 100 : 50);
 
   return new Promise((resolve) => {
     const picker = vscode.window.createQuickPick();
@@ -93,7 +95,13 @@ async function pickFiles(files, branchRef, repositoryRoot) {
     const disposables = [
       picker.onDidChangeValue(() => {
         picker.busy = true;
-        setVisibleItems();
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+        debounceTimer = setTimeout(() => {
+          setVisibleItems();
+          debounceTimer = null;
+        }, debounceMs);
       }),
       picker.onDidChangeSelection((selection) => {
         syncVisibleSelection(selection);
@@ -108,6 +116,9 @@ async function pickFiles(files, branchRef, repositoryRoot) {
         resolve([...selectedFiles]);
       }),
       picker.onDidHide(() => {
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
         for (const disposable of disposables) {
           disposable.dispose();
         }

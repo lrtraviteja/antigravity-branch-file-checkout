@@ -3,6 +3,9 @@
 const path = require("node:path");
 const SYMBOL_ICON_THEME = require("../assets/theme-symbols/symbol-icon-theme.json");
 
+const QUERY_MAX_LENGTH = 64;
+
+
 function createFilePickerItems(files, repositoryRoot) {
   const repositoryName = path.basename(repositoryRoot);
   return files.map((file, index) => {
@@ -179,6 +182,11 @@ function queryExpectsExactMatch(query) {
 
 function scoreFuzzy(target, query, queryLower, allowNonContiguousMatches) {
   if (!target || !query || target.length < query.length) {
+    return [0, []];
+  }
+
+  // Early termination to prevent runaway DP calculations on pasted logs/long inputs
+  if (query.length > QUERY_MAX_LENGTH) {
     return [0, []];
   }
 

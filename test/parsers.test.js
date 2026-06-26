@@ -125,7 +125,7 @@ test("createFilePickerItems formats Ctrl+P-style labels and paths", () => {
   assert.deepEqual(
     createFilePickerItems(
       ["package.json", "src/features/search-file.ts"],
-      "C:\\work\\demo"
+      process.platform === "win32" ? "C:\\work\\demo" : "C:/work/demo"
     ).map((item) => ({
       file: item.file,
       basename: item.basename,
