@@ -70,6 +70,14 @@ async function pickFiles(files, branchRef, repositoryRoot) {
       isUpdatingItems = true;
       // map to shallow copy to force VS Code to redraw highlights
       visibleItems = filterFilePickerItems(allItems, picker.value, maxResults).map(item => ({ ...item }));
+      
+      if (picker.value) {
+        log(`--- Mathematical Highlight Ranges for "${picker.value}" ---`);
+        for (const item of visibleItems.slice(0, 5)) {
+          log(`[${item.basename}] Label: ${JSON.stringify(item.highlights?.label)} | Desc: ${JSON.stringify(item.highlights?.description)}`);
+        }
+      }
+
       picker.items = visibleItems;
       const checkedVisibleItems = visibleItems.filter((item) =>
         selectedFiles.has(item.file)
