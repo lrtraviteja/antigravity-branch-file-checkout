@@ -22,6 +22,12 @@ async function pickFiles(files, branchRef, repositoryRoot) {
   } catch (e) {
     useResourceUri = false;
   }
+  
+  if (useResourceUri) {
+    console.log("branch-file-checkout: Using both iconPath and resourceUri (API available).");
+  } else {
+    console.log("branch-file-checkout: Falling back to iconPath only (resourceUri API unavailable).");
+  }
 
   const allItems = createFilePickerItems(files, repositoryRoot).map((item) => {
     const pickItem = {

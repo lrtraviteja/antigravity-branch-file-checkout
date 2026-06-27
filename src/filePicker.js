@@ -584,7 +584,9 @@ function createMatches(positions) {
     }
   }
   matches.push(currentMatch);
-  return matches.map(m => [m.start, m.end]);
+  return matches.map((m) => {
+    return { start: m.start, end: m.end };
+  });
 }
 
 function compareScoredItems(itemA, itemB, query) {
