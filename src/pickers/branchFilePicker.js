@@ -43,8 +43,12 @@ async function pickFiles(files, branchRef, repositoryRoot) {
     picker.placeholder =
       "Search files by name (append : to go to line or @ to go to symbol)";
 
+    let isUpdatingItems = false;
+
     const setVisibleItems = () => {
-      visibleItems = filterFilePickerItems(allItems, picker.value, maxResults);
+      isUpdatingItems = true;
+      // map to shallow copy to force VS Code to redraw highlights
+      visibleItems = filterFilePickerItems(allItems, picker.value, maxResults).map(item => ({ ...item }));
       picker.items = visibleItems;
       const checkedVisibleItems = visibleItems.filter((item) =>
         selectedFiles.has(item.file)
@@ -56,6 +60,7 @@ async function pickFiles(files, branchRef, repositoryRoot) {
       picker.selectedItems = checkedVisibleItems;
       picker.activeItems = visibleItems.length > 0 ? [visibleItems[0]] : [];
       picker.busy = false;
+      isUpdatingItems = false;
     };
 
     const syncVisibleSelection = (selection) => {
@@ -87,6 +92,7 @@ async function pickFiles(files, branchRef, repositoryRoot) {
         }, debounceMs);
       }),
       picker.onDidChangeSelection((selection) => {
+        if (isUpdatingItems) return;
         syncVisibleSelection(selection);
       }),
       picker.onDidAccept(() => {
