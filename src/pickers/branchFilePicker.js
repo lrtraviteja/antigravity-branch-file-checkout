@@ -13,17 +13,32 @@ async function pickFiles(files, branchRef, repositoryRoot) {
   const isSrc = __dirname.includes('pickers');
   const extensionRoot = path.resolve(__dirname, isSrc ? '../../' : '../');
 
+  let useResourceUri = false;
+  try {
+    const testPicker = vscode.window.createQuickPick();
+    testPicker.items = [{ label: 'test', resourceUri: vscode.Uri.file(__filename) }];
+    useResourceUri = true;
+    testPicker.dispose();
+  } catch (e) {
+    useResourceUri = false;
+  }
+
   const allItems = createFilePickerItems(files, repositoryRoot).map((item) => {
-    return {
+    const pickItem = {
       label: item.basename,
       description: item.displayDirectory,
       alwaysShow: true,
       file: item.file,
       basename: item.basename,
       displayDirectory: item.displayDirectory,
-      iconPath: vscode.Uri.file(path.join(extensionRoot, "assets", "theme-symbols", item.assetPath)),
-      resourceUri: vscode.Uri.file(path.join(repositoryRoot, item.file))
+      iconPath: vscode.Uri.file(path.join(extensionRoot, "assets", "theme-symbols", item.assetPath))
     };
+    
+    if (useResourceUri) {
+      pickItem.resourceUri = vscode.Uri.file(path.join(repositoryRoot, item.file));
+    }
+    
+    return pickItem;
   });
   const selectedFiles = new Set();
   const selectedVisibleFiles = new Set();
