@@ -1,6 +1,7 @@
 "use strict";
 
 const vscode = require("vscode");
+const { filterScoredItems } = require("../filePicker");
 const { escapeLogText, log } = require("../logging/output");
 
 async function pickBranch({ branches, currentBranch }) {
@@ -37,64 +38,112 @@ function toBranchQuickPickItem(branch, currentBranch) {
     detail: buildBranchDetail(branch),
     iconPath:
       branch.kind === "remote" ? new vscode.ThemeIcon("cloud") : undefined,
+    alwaysShow: true,
     branch
   };
 }
 
 function pickBranchItem(localItems, remoteItems) {
+  const maxResults = 512;
   let accepted = false;
 
   return new Promise((resolve) => {
     const picker = vscode.window.createQuickPick();
     picker.canSelectMany = false;
-    picker.matchOnDescription = true;
-    picker.matchOnDetail = true;
+    picker.matchOnDescription = false;
+    picker.matchOnDetail = false;
     picker.ignoreFocusOut = true;
     picker.title = "Checkout Files from Branch";
     picker.placeholder = "Select a local or remote branch to checkout files from";
 
-    const items = [];
-    if (localItems.length > 0) {
-      items.push({
-        label: "branches",
-        kind: vscode.QuickPickItemKind.Separator
-      });
-      items.push(...localItems);
-    }
-    if (remoteItems.length > 0) {
-      items.push({
-        label: "remote branches",
-        kind: vscode.QuickPickItemKind.Separator
-      });
-      items.push(...remoteItems);
-    }
+    const setVisibleItems = () => {
+      const filteredLocalItems = filterBranchItems(
+        localItems,
+        picker.value,
+        maxResults
+      );
+      const remainingLimit = Math.max(0, maxResults - filteredLocalItems.length);
+      const filteredRemoteItems = filterBranchItems(
+        remoteItems,
+        picker.value,
+        remainingLimit
+      );
+      const items = [];
 
-    picker.items = items;
+      if (filteredLocalItems.length > 0) {
+        items.push({
+          label: "branches",
+          kind: vscode.QuickPickItemKind.Separator
+        });
+        items.push(...filteredLocalItems);
+      }
+      if (filteredRemoteItems.length > 0) {
+        items.push({
+          label: "remote branches",
+          kind: vscode.QuickPickItemKind.Separator
+        });
+        items.push(...filteredRemoteItems);
+      }
 
-    picker.onDidAccept(() => {
-      const picked = picker.activeItems.find(
+      picker.items = items;
+      const firstItem = items.find(
         (item) => item.kind !== vscode.QuickPickItemKind.Separator
       );
-      accepted = true;
-      picker.hide();
-      if (picked?.branch) {
-        log(`Branch picked: ${escapeLogText(picked.branch.ref)}`);
-      }
-      resolve(picked?.branch);
-    });
+      picker.activeItems = firstItem ? [firstItem] : [];
+      picker.busy = false;
+    };
 
-    picker.onDidHide(() => {
-      picker.dispose();
-      if (!accepted) {
-        resolve(undefined);
-      }
-    });
+    const disposables = [
+      picker.onDidChangeValue(() => {
+        picker.busy = true;
+        setVisibleItems();
+      }),
+      picker.onDidAccept(() => {
+        const picked = picker.activeItems.find(
+          (item) => item.kind !== vscode.QuickPickItemKind.Separator
+        );
+        accepted = true;
+        picker.hide();
+        if (picked?.branch) {
+          log(`Branch picked: ${escapeLogText(picked.branch.ref)}`);
+        }
+        resolve(picked?.branch);
+      }),
+      picker.onDidHide(() => {
+        for (const disposable of disposables) {
+          disposable.dispose();
+        }
+        picker.dispose();
+        if (!accepted) {
+          resolve(undefined);
+        }
+      })
+    ];
 
     log(
       `Opening branch picker with ${localItems.length} local and ${remoteItems.length} remote branch item(s)`
     );
+    setVisibleItems();
     picker.show();
   });
+}
+
+function filterBranchItems(items, query, limit) {
+  return filterScoredItems(
+    items,
+    query,
+    (item) => [
+      { role: "label", value: item.label },
+      { role: "description", value: item.description },
+      { role: "path", value: item.branch?.ref },
+      { role: "extra", value: item.detail },
+      { role: "extra", value: item.branch?.kind },
+      { role: "extra", value: item.branch?.author },
+      { role: "extra", value: item.branch?.subject },
+      { role: "extra", value: item.branch?.commit }
+    ],
+    limit
+  );
 }
 
 function buildBranchDetail(branch) {

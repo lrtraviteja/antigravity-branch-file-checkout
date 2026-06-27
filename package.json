@@ -2,7 +2,7 @@
   "name": "branch-file-checkout",
   "displayName": "Branch File Checkout",
   "description": "Checkout selected files from another local or remote Git branch without switching branches.",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "publisher": "local",
   "license": "MIT",
   "enabledApiProposals": [
