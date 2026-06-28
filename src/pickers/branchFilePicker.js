@@ -33,7 +33,6 @@ async function pickFiles(files, branchRef, repositoryRoot) {
     const pickItem = {
       label: item.basename,
       description: item.displayDirectory,
-      alwaysShow: true,
       file: item.file,
       basename: item.basename,
       displayDirectory: item.displayDirectory,
@@ -46,13 +45,8 @@ async function pickFiles(files, branchRef, repositoryRoot) {
     
     return pickItem;
   });
-  const selectedFiles = new Set();
-  const selectedVisibleFiles = new Set();
-  const maxResults = 512;
+
   let accepted = false;
-  let visibleItems = [];
-  let debounceTimer = null;
-  const debounceMs = allItems.length > 1000 ? 150 : (allItems.length > 500 ? 100 : 50);
 
   return new Promise((resolve) => {
     const picker = vscode.window.createQuickPick();
@@ -64,82 +58,22 @@ async function pickFiles(files, branchRef, repositoryRoot) {
     picker.placeholder =
       "Search files by name (append : to go to line or @ to go to symbol)";
 
-    let isUpdatingItems = false;
-
-    const setVisibleItems = () => {
-      isUpdatingItems = true;
-      // map to shallow copy to force VS Code to redraw highlights
-      visibleItems = filterFilePickerItems(allItems, picker.value, maxResults).map(item => ({ ...item }));
-      
-      log(`[IPC] Sending ${visibleItems.length} filtered items to the Main Process QuickPick widget...`);
-      if (picker.value) {
-        log(`--- Mathematical Highlight Ranges for "${picker.value}" ---`);
-        for (const item of visibleItems.slice(0, 5)) {
-          log(`[${item.basename}] Label: ${JSON.stringify(item.highlights?.label)} | Desc: ${JSON.stringify(item.highlights?.description)}`);
-        }
-      }
-
-      picker.items = visibleItems;
-      const checkedVisibleItems = visibleItems.filter((item) =>
-        selectedFiles.has(item.file)
-      );
-      selectedVisibleFiles.clear();
-      for (const item of checkedVisibleItems) {
-        selectedVisibleFiles.add(item.file);
-      }
-      picker.selectedItems = checkedVisibleItems;
-      picker.activeItems = visibleItems.length > 0 ? [visibleItems[0]] : [];
-      picker.busy = false;
-      isUpdatingItems = false;
-    };
-
-    const syncVisibleSelection = (selection) => {
-      const nextVisibleFiles = new Set(selection.map((item) => item.file));
-      for (const item of selection) {
-        selectedFiles.add(item.file);
-      }
-      for (const file of selectedVisibleFiles) {
-        if (!nextVisibleFiles.has(file)) {
-          selectedFiles.delete(file);
-        }
-      }
-      selectedVisibleFiles.clear();
-      for (const file of nextVisibleFiles) {
-        selectedVisibleFiles.add(file);
-      }
-      picker.title = `Select Files from ${branchRef} - ${selectedFiles.size} selected`;
-    };
+    picker.items = allItems;
+    picker.activeItems = allItems.length > 0 ? [allItems[0]] : [];
 
     const disposables = [
-      picker.onDidChangeValue(() => {
-        picker.busy = true;
-        if (debounceTimer) {
-          clearTimeout(debounceTimer);
-        }
-        debounceTimer = setTimeout(() => {
-          setVisibleItems();
-          debounceTimer = null;
-        }, debounceMs);
-      }),
-      picker.onDidChangeSelection((selection) => {
-        if (isUpdatingItems) return;
-        syncVisibleSelection(selection);
-      }),
       picker.onDidAccept(() => {
-        syncVisibleSelection(picker.selectedItems);
-        if (selectedFiles.size === 0 && picker.activeItems[0]) {
-          selectedFiles.add(picker.activeItems[0].file);
+        let result = picker.selectedItems.map((item) => item.file);
+        if (result.length === 0 && picker.activeItems[0]) {
+          result = [picker.activeItems[0].file];
         }
         accepted = true;
         picker.hide();
 
-        log(`[IPC] User accepted QuickPick. Received ${picker.selectedItems.length} checked items and ${picker.activeItems.length} active items from the Main Process.`);
-        resolve([...selectedFiles]);
+        log(`[IPC] User accepted QuickPick. Received ${result.length} files from the Main Process.`);
+        resolve(result);
       }),
       picker.onDidHide(() => {
-        if (debounceTimer) {
-          clearTimeout(debounceTimer);
-        }
         for (const disposable of disposables) {
           disposable.dispose();
         }
@@ -151,7 +85,6 @@ async function pickFiles(files, branchRef, repositoryRoot) {
     ];
 
     log(`Opening multi-select file picker with ${allItems.length} item(s)`);
-    setVisibleItems();
     picker.show();
   });
 }
