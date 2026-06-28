@@ -527,7 +527,7 @@ function scoreItemFuzzySingle(
   }
 
   if (item.description) {
-    const descriptionAndLabel = `${item.description}/${item.label}`;
+    const descriptionAndLabel = `${item.description}${path.sep}${item.label}`;
     const descResult = scoreTarget(
       descriptionAndLabel,
       query,
@@ -538,7 +538,7 @@ function scoreItemFuzzySingle(
       const positions = descResult[1];
       const descLength = item.description.length;
       
-      const descPositions = positions.filter(p => p < descLength);
+      const descPositions = positions.filter(p => p <= descLength);
       const labelPositions = positions.filter(p => p > descLength).map(p => p - descLength - 1);
       
       return { 
